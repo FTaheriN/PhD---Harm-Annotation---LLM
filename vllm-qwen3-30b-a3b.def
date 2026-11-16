@@ -1,0 +1,65 @@
+Bootstrap: docker
+From: nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04
+
+%labels
+    Author Elizabeth
+    Purpose "vLLM serving Qwen3-30B-A3B on HPC, CUDA 12.8 / driver 570.211.01"
+    Vllm_version 0.9.2
+    Model Qwen/Qwen3-30B-A3B-Instruct-2507
+
+%environment
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
+    export PYTHONNOUSERSITE=1
+    # Force vLLM/uv/pip toward the CUDA 12.8 wheel variant explicitly.
+    # This is the single most important line in this file: it prevents
+    # pip/uv from silently pulling a cu129/cu130 build that expects a
+    # newer libcudart than the one baked into this image.
+    export UV_TORCH_BACKEND=cu128
+    export VLLM_MAIN_CUDA_VERSION=12.8
+    # Hugging Face cache -> bind this to shared/scratch storage at runtime
+    export HF_HOME=/mnt/hf_cache
+    export HF_HUB_ENABLE_HF_TRANSFER=1
+    # Avoid NCCL/IB probing failures inside containers on some HPC fabrics;
+    # override at runtime if your cluster needs InfiniBand for multi-node.
+    export NCCL_IB_DISABLE=${NCCL_IB_DISABLE:-0}
+    export VLLM_WORKER_MULTIPROC_METHOD=spawn
+
+%post
+    set -eux
+    export DEBIAN_FRONTEND=noninteractive
+
+    apt-get update && apt-get install -y --no-install-recommends \
+        python3 python3-venv python3-pip git curl ca-certificates \
+        build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+    # uv gives us reliable CUDA-variant wheel resolution (torch-backend=auto/cu128)
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="/root/.local/bin:${PATH}"
+
+    python3 -m venv /opt/venv
+    . /opt/venv/bin/activate
+
+    # Install matching vLLM and PyTorch versions together.
+    VLLM_VERSION=0.9.2
+    uv pip install --python /opt/venv/bin/python \
+        "vllm==${VLLM_VERSION}" \
+        "torch==2.7.0" \
+        --extra-index-url https://download.pytorch.org/whl/cu128 \
+        --index-strategy unsafe-best-match \
+        --torch-backend=cu128
+
+    # 3) Extras: fast HF downloads, flash-attn ships as a vLLM dependency already.
+    uv pip install --python /opt/venv/bin/python hf_transfer
+
+    mkdir -p /mnt/hf_cache /mnt/user-data /mnt/outputs
+
+%runscript
+    exec /opt/venv/bin/python -m vllm.entrypoints.openai.api_server "$@"
+
+%test
+    . /opt/venv/bin/activate
+    python -c "import torch; print('torch:', torch.__version__, 'cuda:', torch.version.cuda, 'available:', torch.cuda.is_available())"
+    python -c "import vllm; print('vllm:', vllm.__version__)"
+    nvidia-smi || true

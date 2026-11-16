@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+client-env/
+.venv/
+
+# Container images and caches
+*.sif
+apptainer-cache/
+build-tmp/
+hf-cache/
+
+# Data, results and logs
+data/
+results/
+logs/
+*.jsonl
+*.out
+*.err
+*.log
+
+# Credentials
+.env
+.env.*
+!.env.example
