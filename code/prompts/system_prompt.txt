@@ -56,7 +56,7 @@ Err toward **"negative"** when in doubt. A false negative (missing a real case) 
 You MUST respond with valid JSON only. No prose, no markdown, no explanation outside the JSON object.
 
 {
-  "label": "negative” | “positive”",
+  "llm_label": "negative” | “positive”",
   "confidence": "low" | "medium" | "high",
   "reasoning": "<one or two sentences explaining the specific element that drove your classification, or why this is none>"
 }

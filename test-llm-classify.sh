@@ -9,13 +9,14 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=96G
-#SBATCH --time=02:00:00
+#SBATCH --time=00:30:00
 #SBATCH --output=qwen-%j.out
 #SBATCH --error=qwen-%j.err
 
 set -euo pipefail
 
 module purge
+module load GCCcore/11.3.0
 module load Apptainer/1.1.8
 module load Python/3.10.4
 
