@@ -36,7 +36,7 @@ Output schema (one JSON object per line)
 """
 
 from __future__ import annotations
-
+import re
 import argparse
 import json
 import logging
@@ -45,7 +45,7 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from classify_llm import LLMClassifier
+from classify_llm import PROMPTS_DIR, LLMClassifier
 from ingest import iter_posts, load_processed_ids
 from route import route_posts
 
@@ -69,6 +69,38 @@ def _write_result(record: dict, fh) -> None:
     fh.flush()
 
 
+def run_span_annotations(args) -> None:
+    template = (PROMPTS_DIR / "span_harm_category_prompt.txt").read_text(
+        encoding="utf-8"
+    )
+    categories = (PROMPTS_DIR / "harm_categories.txt").read_text(encoding="utf-8")
+    allowed_ids = {int(value) for value in re.findall(r"(?m)^(\d+)\.", categories)}
+    if not allowed_ids or any(
+        template.count(field) != 1 for field in ("{categories}", "{text}")
+    ):
+        raise ValueError("Expected numbered categories and both prompt placeholders")
+
+    posts = iter_posts(args.data_dir, id_field=args.task_id_field)
+    if args.dry_run:
+        logger.info("Span annotation input contains %d valid rows.", sum(1 for _ in posts))
+        return
+
+    classifier = LLMClassifier(
+        base_url=args.vllm_url,
+        model=args.model,
+        max_retries=args.max_retries,
+        thinking_budget=args.thinking_budget,
+    )
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+
+    with args.output.open("x", encoding="utf-8") as out_fh:
+        for post in tqdm(posts, desc="annotating spans", unit="task"):
+            result = classifier.annotate_spans(
+                post["content"], template, categories, allowed_ids
+            )
+            _write_result({"task_id": post[args.task_id_field], **result}, out_fh)
+
+            
 def run_pipeline(
     data_dir: Path,
     output_path: Path,
@@ -238,12 +270,17 @@ def main() -> None:
         action="store_true",
         help="Run only the prefilter and report statistics; skip LLM calls.",
     )
+    parser.add_argument("--span-annotations", action="store_true")
+    parser.add_argument("--task-id-field", default="task_id")
 
     args = parser.parse_args()
     if args.context_window < 0:
         parser.error("--context-window must be >= 0")
     _configure_logging(args.log_level, args.log_file)
-
+    if args.span_annotations:
+        run_span_annotations(args)
+        return
+    
     run_pipeline(
         data_dir=args.data_dir,
         output_path=args.output,

@@ -8,6 +8,10 @@ model is constrained to the output schema at the token level.
 
 from __future__ import annotations
 
+import re
+
+from pydantic import ConfigDict, Field
+
 import json
 import logging
 import os
@@ -37,6 +41,19 @@ RESPONSE_SCHEMA = {
     "required": ["label", "confidence", "reasoning"],
     "additionalProperties": False,
 }
+
+class HarmAnnotation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str
+    text: str = Field(min_length=1)
+    annotation_type: list[int] = Field(min_length=1)
+
+
+class SpanAnnotationResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    annotations: list[HarmAnnotation]
 
 
 class ClassificationResult(BaseModel):
@@ -152,18 +169,16 @@ class LLMClassifier:
         last_error: Exception | None = None
         for attempt in range(1, self.max_retries + 1):
             try:
-                response = self._client.chat.completions.create(
-                    model=self.model,
-                    messages=[
+                raw = self._complete(
+                    [
                         {"role": "system", "content": SYSTEM_PROMPT},
                         {"role": "user", "content": user_message},
                     ],
-                    temperature=0.0,
-                    max_tokens=300,
-                    extra_body=extra_body,
+                    RESPONSE_SCHEMA,
+                    300,
                 )
-                raw = response.choices[0].message.content or ""
                 return _parse_response(raw)
+            
             except (ValueError, Exception) as e:
                 last_error = e
                 if attempt < self.max_retries:
@@ -209,3 +224,63 @@ class LLMClassifier:
                 record["llm_error"] = str(e)
             results.append(record)
         return results
+
+
+    def _complete(self, messages, schema, max_tokens: int) -> str:
+        response = self._client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            temperature=0.0,
+            max_tokens=max_tokens,
+            extra_body={
+                "guided_json": schema,
+                "chat_template_kwargs": {
+                    "enable_thinking": self.thinking_budget > 0,
+                },
+            },
+        )
+        choice = response.choices[0]
+        return choice.message.content or ""
+
+    def annotate_spans(
+        self, content: str, template: str, categories: str, allowed_ids: set[int]
+    ) -> dict:
+        values = {"categories": categories, "text": content}
+        prompt = re.sub(
+            r"\{(categories|text)\}",
+            lambda match: values[match[1]],
+            template,
+        )
+        raw = None
+        error = None
+
+        for attempt in range(self.max_retries):
+            try:
+                raw = self._complete(
+                    [{"role": "user", "content": prompt}],
+                    SpanAnnotationResponse.model_json_schema(),
+                    2048,
+                )
+                result = SpanAnnotationResponse.model_validate_json(raw, strict=True)
+                annotations = []
+                for span in result.annotations:
+                    if span.text not in content:
+                        raise ValueError("Span is absent from the original content")
+                    ids = span.annotation_type
+                    if set(ids) - allowed_ids or len(ids) != len(set(ids)):
+                        raise ValueError("Invalid or repeated harm category")
+                    annotations.append({
+                        "span_text": span.text,
+                        "harm_category": ids,
+                    })
+                return {
+                    "raw_output": raw,
+                    "annotations": annotations,
+                    "llm_error": None,
+                }
+            except Exception as exc:
+                error = type(exc).__name__
+                if attempt + 1 < self.max_retries:
+                    time.sleep(self.retry_delay)
+
+        return {"raw_output": raw, "annotations": None, "llm_error": error}

@@ -98,9 +98,18 @@ echo "vLLM is ready."
 curl --fail --silent --show-error "$SERVER_URL/v1/models"
 echo
 
+PIPELINE_ARGS=()
+OUTPUT="$RESULTS/test_classified-${SLURM_JOB_ID}.jsonl"
+
+if [[ "${SPAN_ANNOTATIONS:-0}" == 1 ]]; then
+    PIPELINE_ARGS+=(--span-annotations --task-id-field "${TASK_ID_FIELD:-task_id}")
+    OUTPUT="$RESULTS/span_annotations-${SLURM_JOB_ID}.jsonl"
+    DATA_DIR="${SPAN_DATA_DIR:-$DATA_DIR}"
+fi
+
 python "$CODE/pipeline.py" \
   --data-dir "$DATA_DIR" \
-  --output "$RESULTS/test_classified-${SLURM_JOB_ID}.jsonl" \
+  --output "$OUTPUT" \
   --audit-log "$RESULTS/test_prefilter_audit-${SLURM_JOB_ID}.jsonl" \
   --vllm-url "$SERVER_URL/v1" \
   --model qwen3-30b-a3b-instruct-2507 \
@@ -108,4 +117,5 @@ python "$CODE/pipeline.py" \
   --context-window 0 \
   --thinking-budget 0 \
   --skip-prefilter \
-  --log-file "$PROJ/logs/pipeline-${SLURM_JOB_ID}.log"
+  --log-file "$PROJ/logs/pipeline-${SLURM_JOB_ID}.log" \
+  "${PIPELINE_ARGS[@]}"

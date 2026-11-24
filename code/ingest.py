@@ -21,11 +21,11 @@ logger = logging.getLogger(__name__)
 REQUIRED_FIELDS = {"message_id", "content"}
 
 
-def _is_valid_post(record: object, path: Path, lineno: int) -> bool:
+def _is_valid_post(record: object, path: Path, lineno: int, id_field: str = "message_id") -> bool:
     if not isinstance(record, dict):
         logger.warning("%s line %d: not a JSON object, skipping", path.name, lineno)
         return False
-    missing = REQUIRED_FIELDS - record.keys()
+    missing = {id_field, "content"} - record.keys()
     if missing:
         logger.warning(
             "%s line %d: missing fields %s, skipping", path.name, lineno, missing
@@ -42,6 +42,7 @@ def iter_posts(
     *,
     glob: str = "*.jsonl",
     skip_ids: Set[int] | None = None,
+    id_field: str = "message_id",
 ) -> Generator[dict, None, None]:
     """Read a JSON file or a directory of JSONL files."""
     input_path = Path(data_dir)
@@ -64,9 +65,9 @@ def iter_posts(
             )
 
         for index, record in enumerate(records, start=1):
-            if not _is_valid_post(record, input_path, index):
+            if not _is_valid_post(record, input_path, index, id_field=id_field):
                 continue
-            if record["message_id"] in skip:
+            if record[id_field] in skip:
                 continue
             yield record
 
@@ -95,9 +96,9 @@ def iter_posts(
                     )
                     continue
 
-                if not _is_valid_post(record, path, lineno):
+                if not _is_valid_post(record, path, lineno, id_field=id_field):
                     continue
-                if record["message_id"] in skip:
+                if record[id_field] in skip:
                     continue
 
                 yield record
@@ -184,9 +185,9 @@ def load_processed_ids(output_path: str | Path) -> Set[int]:
     return ids
 
 
-def count_posts(data_dir: str | Path, glob: str = "*.jsonl") -> int:
+def count_posts(data_dir: str | Path, glob: str = "*.jsonl", id_field: str = "message_id") -> int:
     """Count the total number of valid posts across all files (for progress bars)."""
     total = 0
-    for _ in iter_posts(data_dir, glob=glob):
+    for _ in iter_posts(data_dir, glob=glob, id_field=id_field):
         total += 1
     return total
