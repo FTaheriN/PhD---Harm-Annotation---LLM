@@ -49,3 +49,17 @@ cd "$PROJ"
 apptainer build \
   "$PROJ/vllm-qwen3.sif" \
   "$PROJ/vllm-qwen3-30b-a3b.def"
+
+
+
+sinteractive --partition=sapphire \
+  --time=00:10:00 \
+  --cpus-per-task=4 \
+  --mem=32G
+
+
+python code/evaluate_predictions.py \
+  /data/gpfs/projects/punim0478/fatitaheri/llm-results/test_classified-trial1.jsonl \
+  /data/gpfs/projects/punim0478/fatitaheri/llm-results/test_classified-trail2.jsonl \
+  --reference-ids /data/gpfs/projects/punim0478/fatitaheri/annotations/data/harm_consensus_5_seed34_piiAgg_split_42/test.json \
+  --output /data/gpfs/projects/punim0478/fatitaheri/llm-results/trial1_trial2_test_evaluation.html
