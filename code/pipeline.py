@@ -36,10 +36,10 @@ Output schema (one JSON object per line)
 """
 
 from __future__ import annotations
-import re
 import argparse
 import json
 import logging
+import re
 import sys
 from pathlib import Path
 
@@ -80,7 +80,18 @@ def run_span_annotations(args) -> None:
     ):
         raise ValueError("Expected numbered categories and both prompt placeholders")
 
-    posts = iter_posts(args.data_dir, id_field=args.task_id_field)
+    def tasks():
+        seen = set()
+        for post in iter_posts(
+            args.data_dir, id_field=args.task_id_field, strict_tasks=True
+        ):
+            task_id = post[args.task_id_field]
+            if task_id in seen:
+                raise ValueError(f"Duplicate task ID in input field {args.task_id_field!r}")
+            seen.add(task_id)
+            yield post
+
+    posts = tasks()
     if args.dry_run:
         logger.info("Span annotation input contains %d valid rows.", sum(1 for _ in posts))
         return
@@ -100,7 +111,7 @@ def run_span_annotations(args) -> None:
             )
             _write_result({"task_id": post[args.task_id_field], **result}, out_fh)
 
-            
+
 def run_pipeline(
     data_dir: Path,
     output_path: Path,
@@ -274,13 +285,15 @@ def main() -> None:
     parser.add_argument("--task-id-field", default="task_id")
 
     args = parser.parse_args()
+    if args.span_annotations and args.max_retries < 1:
+        parser.error("--max-retries must be >= 1 for span annotations")
     if args.context_window < 0:
         parser.error("--context-window must be >= 0")
     _configure_logging(args.log_level, args.log_file)
     if args.span_annotations:
         run_span_annotations(args)
         return
-    
+
     run_pipeline(
         data_dir=args.data_dir,
         output_path=args.output,

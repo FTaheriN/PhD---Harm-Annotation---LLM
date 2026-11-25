@@ -23,21 +23,32 @@ module load Python/3.10.4
 PROJECT_ID="punim0478"
 PROJ="/data/scratch/projects/$PROJECT_ID/fatitaheri/llm-serving"
 CODE="$PROJ/code"
-DATA_DIR="/data/gpfs/projects/punim0478/fatitaheri/annotations/data/harm_consensus_5_piiRev_filtered/harm_consensus_mapped_filtered.json"
+DATA_DIR="/data/gpfs/projects/$PROJECT_ID/fatitaheri/annotations/data/harm_consensus_5_piiRev_filtered/harm_consensus_mapped_filtered.json"
 RESULTS="/data/gpfs/projects/$PROJECT_ID/fatitaheri/llm-results"
+
+PIPELINE_ARGS=()
+OUTPUT="$RESULTS/test_classified-${SLURM_JOB_ID}.jsonl"
+
+if [[ "${SPAN_ANNOTATIONS:-0}" == 1 ]]; then
+    PIPELINE_ARGS+=(--span-annotations --task-id-field "${TASK_ID_FIELD:-task_id}")
+    OUTPUT="$RESULTS/span_annotations-${SLURM_JOB_ID}.jsonl"
+    DATA_DIR="${SPAN_DATA_DIR:-$DATA_DIR}"
+fi
 
 source "$PROJ/client-env/bin/activate"
 cd "$CODE"
 
 mkdir -p "$PROJ/hf-cache" "$PROJ/logs" "$RESULTS"
 
-# Check the main paths before starting the expensive server.
+# Check the selected paths before starting vLLM.
 test -r "$PROJ/vllm-qwen3.sif"
 test -r "$CODE/pipeline.py"
-test -f "$DATA_DIR" && test -r "$DATA_DIR" || {
-    echo "Dataset file missing or unreadable: $DATA_DIR" >&2
+
+if ! { [[ -f "$DATA_DIR" && -r "$DATA_DIR" ]] ||
+       [[ -d "$DATA_DIR" && -r "$DATA_DIR" && -x "$DATA_DIR" ]]; }; then
+    echo "Dataset path missing or unreadable: $DATA_DIR" >&2
     exit 1
-}
+fi
 
 PORT=8000
 SERVER_URL="http://127.0.0.1:$PORT"
@@ -49,6 +60,7 @@ cleanup() {
         wait "$VLLM_PID" 2>/dev/null || true
     fi
 }
+
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
@@ -81,12 +93,12 @@ until curl --fail --silent --show-error --max-time 5 \
     "$SERVER_URL/health" >/dev/null 2>&1; do
 
     if ! kill -0 "$VLLM_PID" 2>/dev/null; then
-        echo "vLLM exited. Check $SERVER_LOG"
+        echo "vLLM exited. Check $SERVER_LOG" >&2
         exit 1
     fi
 
     if (( SECONDS >= TIMEOUT )); then
-        echo "vLLM startup timed out. Check $SERVER_LOG"
+        echo "vLLM startup timed out. Check $SERVER_LOG" >&2
         exit 1
     fi
 
@@ -94,18 +106,8 @@ until curl --fail --silent --show-error --max-time 5 \
 done
 
 echo "vLLM is ready."
-
 curl --fail --silent --show-error "$SERVER_URL/v1/models"
 echo
-
-PIPELINE_ARGS=()
-OUTPUT="$RESULTS/test_classified-${SLURM_JOB_ID}.jsonl"
-
-if [[ "${SPAN_ANNOTATIONS:-0}" == 1 ]]; then
-    PIPELINE_ARGS+=(--span-annotations --task-id-field "${TASK_ID_FIELD:-task_id}")
-    OUTPUT="$RESULTS/span_annotations-${SLURM_JOB_ID}.jsonl"
-    DATA_DIR="${SPAN_DATA_DIR:-$DATA_DIR}"
-fi
 
 python "$CODE/pipeline.py" \
   --data-dir "$DATA_DIR" \

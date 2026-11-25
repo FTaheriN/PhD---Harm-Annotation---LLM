@@ -8,13 +8,10 @@ model is constrained to the output schema at the token level.
 
 from __future__ import annotations
 
-import re
-
-from pydantic import ConfigDict, Field
-
 import json
 import logging
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -43,15 +40,15 @@ RESPONSE_SCHEMA = {
 }
 
 class HarmAnnotation(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = {"extra": "forbid"}
 
     reason: str
-    text: str = Field(min_length=1)
-    annotation_type: list[int] = Field(min_length=1)
+    text: str
+    annotation_type: list[int]
 
 
 class SpanAnnotationResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = {"extra": "forbid"}
 
     annotations: list[HarmAnnotation]
 
@@ -159,13 +156,6 @@ class LLMClassifier:
         """
         user_message = _build_user_message(post)
 
-        extra_body: dict[str, Any] = {
-            "guided_json": RESPONSE_SCHEMA,
-            "chat_template_kwargs": {
-                "enable_thinking": self.thinking_budget > 0,
-            },
-        }
-
         last_error: Exception | None = None
         for attempt in range(1, self.max_retries + 1):
             try:
@@ -178,8 +168,7 @@ class LLMClassifier:
                     300,
                 )
                 return _parse_response(raw)
-            
-            except (ValueError, Exception) as e:
+            except Exception as e:
                 last_error = e
                 if attempt < self.max_retries:
                     logger.warning(
@@ -225,7 +214,6 @@ class LLMClassifier:
             results.append(record)
         return results
 
-
     def _complete(self, messages, schema, max_tokens: int) -> str:
         response = self._client.chat.completions.create(
             model=self.model,
@@ -264,10 +252,10 @@ class LLMClassifier:
                 result = SpanAnnotationResponse.model_validate_json(raw, strict=True)
                 annotations = []
                 for span in result.annotations:
-                    if span.text not in content:
+                    if not span.text or span.text not in content:
                         raise ValueError("Span is absent from the original content")
                     ids = span.annotation_type
-                    if set(ids) - allowed_ids or len(ids) != len(set(ids)):
+                    if not ids or set(ids) - allowed_ids or len(ids) != len(set(ids)):
                         raise ValueError("Invalid or repeated harm category")
                     annotations.append({
                         "span_text": span.text,

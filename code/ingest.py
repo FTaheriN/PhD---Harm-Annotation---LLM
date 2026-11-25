@@ -37,12 +37,23 @@ def _is_valid_post(record: object, path: Path, lineno: int, id_field: str = "mes
     return True
 
 
+def _validate_task(record: object, path: Path, lineno: int, id_field: str) -> None:
+    if not isinstance(record, dict):
+        raise ValueError(f"{path}:{lineno}: expected a JSON object")
+    task_id = record.get(id_field)
+    if type(task_id) not in (str, int) or (isinstance(task_id, str) and not task_id.strip()):
+        raise ValueError(f"{path}:{lineno}: expected a nonempty string or integer in {id_field}")
+    if not isinstance(record.get("content"), str):
+        raise ValueError(f"{path}:{lineno}: expected string content")
+
+
 def iter_posts(
     data_dir: str | Path,
     *,
     glob: str = "*.jsonl",
     skip_ids: Set[int] | None = None,
     id_field: str = "message_id",
+    strict_tasks: bool = False,
 ) -> Generator[dict, None, None]:
     """Read a JSON file or a directory of JSONL files."""
     input_path = Path(data_dir)
@@ -65,7 +76,9 @@ def iter_posts(
             )
 
         for index, record in enumerate(records, start=1):
-            if not _is_valid_post(record, input_path, index, id_field=id_field):
+            if strict_tasks:
+                _validate_task(record, input_path, index, id_field)
+            elif not _is_valid_post(record, input_path, index, id_field=id_field):
                 continue
             if record[id_field] in skip:
                 continue
@@ -78,6 +91,8 @@ def iter_posts(
 
     files = sorted(input_path.glob(glob))
     if not files:
+        if strict_tasks:
+            raise ValueError(f"No files matching {glob!r} in {input_path}")
         logger.warning("No files matching %r found in %s", glob, input_path)
         return
 
@@ -90,13 +105,17 @@ def iter_posts(
                 try:
                     record = json.loads(raw_line)
                 except json.JSONDecodeError as exc:
+                    if strict_tasks:
+                        raise ValueError(f"{path}:{lineno}: invalid JSON") from exc
                     logger.warning(
                         "%s line %d: invalid JSON (%s), skipping",
                         path.name, lineno, exc,
                     )
                     continue
 
-                if not _is_valid_post(record, path, lineno, id_field=id_field):
+                if strict_tasks:
+                    _validate_task(record, path, lineno, id_field)
+                elif not _is_valid_post(record, path, lineno, id_field=id_field):
                     continue
                 if record[id_field] in skip:
                     continue
