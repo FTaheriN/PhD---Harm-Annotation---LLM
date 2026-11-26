@@ -10,9 +10,9 @@ client-env/
 apptainer-cache/
 build-tmp/
 hf-cache/
-/.hf-auth/
+/zero-shot/cache/
 
-# Data, results and logs
+# Data, results, and logs
 data/
 results/
 logs/
@@ -22,6 +22,7 @@ logs/
 *.log
 
 # Credentials
+.hf-auth/
 .env
 .env.*
 !.env.example

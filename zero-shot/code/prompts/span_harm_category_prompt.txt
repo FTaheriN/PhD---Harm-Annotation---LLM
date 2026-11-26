@@ -68,7 +68,7 @@ Output the identified spans as a JSON object with a single key, "annotations". T
     {
       "reason": "<Concise explanation of why the span constitutes an indicator of harm and why the assigned categories apply, in no more than 60 words>",
       "text": "<Literal text of the identified span, copied exactly from the provided post>",
-      "annotation_type": ["<List of unique integer indices corresponding to all applicable harm categories>"]
+      "annotation_type": ["<Lstrings containing the exact names of all applicable harm categories from the predefined category set>"]
     }
   ]
 }
