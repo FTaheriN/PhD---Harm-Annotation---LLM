@@ -10,6 +10,7 @@ client-env/
 apptainer-cache/
 build-tmp/
 hf-cache/
+/.hf-auth/
 
 # Data, results and logs
 data/

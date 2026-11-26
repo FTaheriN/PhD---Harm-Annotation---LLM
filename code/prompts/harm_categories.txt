@@ -1,19 +1,15 @@
 0. **Content Leakage:** Intentional leaking of personal information, media, imagery, or other personally identifiable information (PII). This category also includes doxing and the solicitation of personal information for doxing.
 
-1. **Impersonation:** Intentionally pretending to represent a third party in order to do harm to the impersonated or another individual. Includes creating false imagery in order to present someone in a falsified context.
+1. **Overloading:** Attempting to put a target in a state where they are flooded with notifications, messages, calls, or otherwise that they cannot manage.
 
-2. **Lockout and Control:** Hacking or gaining unauthorised access to a target's account, device, or other resources. The attacker may also have an additional motive associated with gaining access.
+2. **Public Opinion Manipulation:** Spreading narratives with the direct intent of manipulating public perception.
 
-3. **Overloading:** Attempting to put a target in a state where they are flooded with notifications, messages, calls, or otherwise that they cannot manage.
+3. **Reporting:** Deceiving an online reporting system or institutional authority. Includes swatting and mass account reporting for platform policy violations that may not actually have occurred.
 
-4. **Public Opinion Manipulation:** Spreading narratives with the direct intent of manipulating public perception.
+4. **Reputational Harm:** Publicly or privately harassing an individual's family, employer, or others with the intent of damaging their reputation.
 
-5. **Reporting:** Deceiving an online reporting system or institutional authority. Includes swatting and mass account reporting for platform policy violations that may not actually have occurred.
+5. **Physical Harm:** Harm to the target's person or possessions, including carrying out, planning, or encouraging such harm.
 
-6. **Reputational Harm:** Publicly or privately harassing an individual's family, employer, or others with the intent of damaging their reputation.
+6. **Surveillance:** Following or monitoring an individual and reporting the results online with the intent of exposing otherwise private behaviour.
 
-7. **Physical Harm:** Harm to the target's person or possessions, including carrying out, planning, or encouraging such harm.
-
-8. **Surveillance:** Following or monitoring an individual and reporting the results online with the intent of exposing otherwise private behaviour.
-
-9. **Toxic Content:** Directly contacting the target to deliver harassment, including hate speech, unwanted explicit content, or otherwise inflammatory remarks that are unwanted by the target.
+7. **Toxic Content:** Directly contacting the target to deliver harassment, including hate speech, unwanted explicit content, or otherwise inflammatory remarks that are unwanted by the target.

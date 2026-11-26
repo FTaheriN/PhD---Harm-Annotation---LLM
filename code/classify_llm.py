@@ -214,21 +214,27 @@ class LLMClassifier:
             results.append(record)
         return results
 
-    def _complete(self, messages, schema, max_tokens: int) -> str:
+    def _complete(self, messages, schema, max_tokens: int, *, span_mode=False) -> str:
+        if span_mode and os.environ.get("VLLM_MODERN_SPAN_API") == "1":
+            extra_body = {"structured_outputs": {"json": schema}}
+            if self.model.startswith(("Qwen3.5-", "Qwen3.6-")):
+                extra_body["chat_template_kwargs"] = {"enable_thinking": False}
+        else:
+            extra_body = {
+                "guided_json": schema,
+                "chat_template_kwargs": {
+                    "enable_thinking": self.thinking_budget > 0,
+                },
+            }
+
         response = self._client.chat.completions.create(
             model=self.model,
             messages=messages,
             temperature=0.0,
             max_tokens=max_tokens,
-            extra_body={
-                "guided_json": schema,
-                "chat_template_kwargs": {
-                    "enable_thinking": self.thinking_budget > 0,
-                },
-            },
+            extra_body=extra_body,
         )
-        choice = response.choices[0]
-        return choice.message.content or ""
+        return response.choices[0].message.content or ""
 
     def annotate_spans(
         self, content: str, template: str, categories: str, allowed_ids: set[int]
@@ -248,6 +254,7 @@ class LLMClassifier:
                     [{"role": "user", "content": prompt}],
                     SpanAnnotationResponse.model_json_schema(),
                     2048,
+                    span_mode=True,
                 )
                 result = SpanAnnotationResponse.model_validate_json(raw, strict=True)
                 annotations = []
