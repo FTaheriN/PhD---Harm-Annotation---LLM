@@ -74,11 +74,14 @@ def run_span_annotations(args) -> None:
         encoding="utf-8"
     )
     categories = (PROMPTS_DIR / "harm_categories.txt").read_text(encoding="utf-8")
-    allowed_ids = {int(value) for value in re.findall(r"(?m)^(\d+)\.", categories)}
-    if not allowed_ids or any(
-        template.count(field) != 1 for field in ("{categories}", "{text}")
-    ):
-        raise ValueError("Expected numbered categories and both prompt placeholders")
+    category_names = re.findall(r"(?m)^\s*\*\*([^:\n]+):\*\*", categories)
+    allowed_categories = set(category_names)
+
+    if not category_names or len(allowed_categories) != len(category_names):
+        raise ValueError("Expected unique category headings such as **Content Leakage:**")
+
+    if any(template.count(field) != 1 for field in ("{categories}", "{text}")):
+        raise ValueError("Expected exactly one {categories} and one {text} placeholder")
 
     def tasks():
         seen = set()
@@ -107,7 +110,7 @@ def run_span_annotations(args) -> None:
     with args.output.open("x", encoding="utf-8") as out_fh:
         for post in tqdm(posts, desc="annotating spans", unit="task"):
             result = classifier.annotate_spans(
-                post["content"], template, categories, allowed_ids
+                post["content"], template, categories, allowed_categories
             )
             _write_result({"task_id": post[args.task_id_field], **result}, out_fh)
 

@@ -44,8 +44,7 @@ class HarmAnnotation(BaseModel):
 
     reason: str
     text: str
-    annotation_type: list[int]
-
+    annotation_type: list[str]
 
 class SpanAnnotationResponse(BaseModel):
     model_config = {"extra": "forbid"}
@@ -237,7 +236,7 @@ class LLMClassifier:
         return response.choices[0].message.content or ""
 
     def annotate_spans(
-        self, content: str, template: str, categories: str, allowed_ids: set[int]
+        self, content: str, template: str, categories: str, allowed_categories: set[str]
     ) -> dict:
         values = {"categories": categories, "text": content}
         prompt = re.sub(
@@ -261,12 +260,14 @@ class LLMClassifier:
                 for span in result.annotations:
                     if not span.text or span.text not in content:
                         raise ValueError("Span is absent from the original content")
-                    ids = span.annotation_type
-                    if not ids or set(ids) - allowed_ids or len(ids) != len(set(ids)):
-                        raise ValueError("Invalid or repeated harm category")
+                    names = span.annotation_type
+                    unique_names = set(names)
+                    if not names or unique_names - allowed_categories or len(unique_names) != len(names):
+                        raise ValueError("Unknown or repeated harm category name")
+
                     annotations.append({
                         "span_text": span.text,
-                        "harm_category": ids,
+                        "harm_category": names,
                     })
                 return {
                     "raw_output": raw,

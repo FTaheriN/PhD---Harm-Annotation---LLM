@@ -25,7 +25,7 @@ IMAGE=$4
 MODEL_NAME=${MODEL_ID##*/}
 
 PROJECT_ID=punim0478
-PROJ="/data/scratch/projects/$PROJECT_ID/fatitaheri/llm-serving"
+PROJ="/data/scratch/projects/$PROJECT_ID/fatitaheri/llm-serving/zero-shot"
 RESULTS="/data/gpfs/projects/$PROJECT_ID/fatitaheri/llm-results"
 HF_CACHE="$PROJ/hf-cache"
 OUTPUT="$RESULTS/${MODEL_NAME}_${SLURM_JOB_ID}.jsonl"

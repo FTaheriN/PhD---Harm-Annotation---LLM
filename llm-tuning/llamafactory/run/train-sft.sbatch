@@ -97,3 +97,11 @@ PY
 #   /scratch/punim0478/fatitaheri/llm-tuning/llamafactory/data/smoke-train.json \
 #   meta-llama/Llama-3.2-3B-Instruct llama3 \
 #   /scratch/punim0478/fatitaheri/llm-tuning/llamafactory/runs 5
+
+# PROJ=/data/scratch/projects/punim0478/fatitaheri/llm-serving/zero-shot
+# IMAGE="$PROJ/vllm-0.17.1.sif"
+# SAMPLE=/data/gpfs/projects/punim0478/fatitaheri/annotations/data/harm_consensus_5_piiRev_filtered/small_sample.json
+# MODEL=meta-llama/Llama-3.2-3B-Instruct            
+# APPTAINERENV_HF_HUB_OFFLINE=1 \
+#   bash -l ./zero-shot/test-span-model.sh \
+#   meta-llama/Llama-3.2-3B-Instruct 1 "$SAMPLE" "$IMAGE"
