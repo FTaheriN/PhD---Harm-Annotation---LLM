@@ -11,6 +11,8 @@ apptainer-cache/
 build-tmp/
 hf-cache/
 /zero-shot/cache/
+.vscode/
+scripts/
 
 # Data, results, and logs
 data/
